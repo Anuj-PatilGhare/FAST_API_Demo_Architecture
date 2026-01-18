@@ -4,17 +4,18 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 
-# App
+# App :
 app = FastAPI(title="This is the Fast API")
 
-# Database
+# Database URL Connection :
 DATABASE_URL = "postgresql://postgres:112233@localhost:5432/Test_Josh"
 
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# DB Model
+
+# DB Model :
 class User(Base):
     __tablename__ = "users"
 
@@ -25,7 +26,8 @@ class User(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Pydantic Models
+
+# Pydantic Models 
 class UserCreate(BaseModel):
     name: str
     email: str
@@ -40,7 +42,7 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# DB Dependency
+# Database Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -48,11 +50,23 @@ def get_db():
     finally:
         db.close()
 
-# Routes
+# Routes : -----------------------------------------------
+
+
+#Test Route:
 @app.get("/")
 def root():
-    return {"msg": "FastAPI running successfully 🚀"}
+    return {"msg": "FastAPI running successfully "}
 
+
+#Get All Users :
+@app.get("/users")
+def get_all_users(db:Session = Depends(get_db)):
+    all_users = db.query(User).all()
+    return all_users
+
+
+# Get specific user with Id : 
 @app.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -62,6 +76,8 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
     return user
 
+
+# Create user with Post :
 @app.post("/users/", response_model=UserResponse)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.user_email == user.email).first()
@@ -79,3 +95,41 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+
+# Update user with POST :
+@app.put("/user/{user_id}", response_model=UserResponse)
+def update_user( user_id: int,  user: UserCreate,db: Session = Depends(get_db)):
+    
+    current_user = db.query(User).filter(User.user_id == user_id).first()
+
+    if not current_user:
+        raise HTTPException( status_code=404, detail="User does not exist..!")
+
+    for field, value in user.dict(exclude_unset=True).items():
+        if   field == "name":
+            current_user.user_name = value
+        elif field == "email":
+            current_user.user_email = value
+        elif field == "role":
+            current_user.user_email = value
+
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
+
+
+# Delete User :
+app.delete("/users/{user_id}")
+def delete_user(user_id:int, db:Session = Depends(get_db)):
+    
+    current_user = db.query(User).filter(User.id == user_id).first()
+    
+    if not current_user:
+        raise HTTPException(status_code=404,detail="User does not Found..!!")
+    
+    db.delete(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
