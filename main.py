@@ -133,3 +133,13 @@ def delete_user(user_id:int, db:Session = Depends(get_db)):
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+
+
+
+
+
+
+
+
